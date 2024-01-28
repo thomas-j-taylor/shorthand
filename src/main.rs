@@ -8,15 +8,19 @@ use crossterm::{
 use ratatui::{prelude::*, widgets::*};
 
 
-#[derive(Debug)]
 struct Keybinding {
     key_sequence: String,
     output: String
 }
 
 impl Keybinding {
-    fn ui_row(&self) -> ratatui::widgets::Row<'static> {
-        Row::new(vec![self.key_sequence.clone(), self.output.clone()])
+    fn ui_row<'a>(&'a self, dimmed_len: usize) -> ratatui::widgets::Row<'a> {
+        let (dimmed_part, non_dimmed_part) = self.key_sequence.split_at(dimmed_len);
+        let key_sequence_line = Line::from(vec![
+            Span::styled(dimmed_part, Style::default().fg(Color::Gray).add_modifier(Modifier::DIM)),
+            Span::raw(non_dimmed_part)
+        ]);
+        Row::new(vec![key_sequence_line, self.output.clone().into()])
     }
 }
 
@@ -100,14 +104,14 @@ fn ui(frame: &mut Frame, pressed_keys: &str, matches: &Vec<Keybinding>) {
     let table_rows: Vec<Row> = matches
         .iter()
         .filter(|k| k.key_sequence.starts_with(pressed_keys))
-        .map(|k| k.ui_row())
+        .map(|k| k.ui_row(pressed_keys.len()))
         .collect();
 
-    let table = Table::new(table_rows, &[Constraint::Length(5), Constraint::Length(25), Constraint::Length(10)])
-        .block(Block::default().title("Matches").borders(Borders::ALL))
+    let table = Table::new(table_rows, &[Constraint::Length(5), Constraint::Length(25), Constraint::Length(20)])
+        .block(Block::default().borders(Borders::ALL))
         .style(Style::default().fg(Color::White))
         .header(
-            Row::new(vec!["Col1", "Col2", "Col3"])
+            Row::new(vec!["", "command", "description"])
             .style(Style::default().fg(Color::Yellow))
             .bottom_margin(1)
             )
