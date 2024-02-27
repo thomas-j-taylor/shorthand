@@ -6,7 +6,16 @@ use crossterm::{
     terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen}
 };
 use ratatui::{prelude::*, widgets::*};
+use clap::Parser;
 
+/// Menu selection like fzf, but with user defined key sequences
+#[derive(Parser, Debug)]
+#[command(version, about, long_about = None)]
+struct Args {
+    /// Display the keys which have been pressed
+    #[arg(short, long, default_value_t = false)]
+    show_pressed_keys: bool,
+}
 
 struct Keybinding {
     key_sequence: String,
@@ -25,6 +34,7 @@ impl Keybinding {
 }
 
 fn main() -> io::Result<()> {
+    let args = Args::parse();
     let mut pressed_keys = String::new();
     let mut output = String::new();
     let stdin_lines: Vec<Keybinding> = io::stdin()
@@ -46,7 +56,7 @@ fn main() -> io::Result<()> {
 
     let mut should_quit = false;
     while !should_quit {
-        terminal.draw(|f| ui(f, &pressed_keys, &stdin_lines))?;
+        terminal.draw(|f| ui(f, &pressed_keys, &stdin_lines, &args))?;
         should_quit = handle_events(&mut pressed_keys, &stdin_lines, &mut output)?;
     }
 
@@ -92,13 +102,15 @@ fn handle_events(pressed_keys: &mut String, bindings: &Vec<Keybinding>, output: 
     Ok(false)
 }
 
-fn ui(frame: &mut Frame, pressed_keys: &str, matches: &Vec<Keybinding>) {
+fn ui(frame: &mut Frame, pressed_keys: &str, matches: &Vec<Keybinding>, args: &Args) {
+
+    let layout_constraints = match args.show_pressed_keys {
+        true => vec![Constraint::Length(3), Constraint::Min(10)],
+        false => vec![Constraint::Min(10)]
+    };
     let layout = Layout::default()
         .direction(Direction::Vertical)
-        .constraints(vec![
-                     Constraint::Length(3),
-                     Constraint::Min(10),
-        ])
+        .constraints(layout_constraints)
         .split(frame.size());
 
     let table_rows: Vec<Row> = matches
@@ -120,13 +132,23 @@ fn ui(frame: &mut Frame, pressed_keys: &str, matches: &Vec<Keybinding>) {
         .highlight_symbol(">>");
     
 
-    frame.render_widget(
-        Paragraph::new(pressed_keys)
-            .block(Block::default().borders(Borders::ALL)),
-        layout[0],
-    );
-    frame.render_widget(
-        table,
-        layout[1]
-        );
+    match args.show_pressed_keys {
+        true => {
+            frame.render_widget(
+                Paragraph::new(pressed_keys)
+                .block(Block::default().borders(Borders::ALL)),
+                layout[0],
+                );
+            frame.render_widget(
+                table,
+                layout[1]
+                );
+        },
+        false => {
+            frame.render_widget(
+                table,
+                layout[0]
+                );
+        }
+    }
 }

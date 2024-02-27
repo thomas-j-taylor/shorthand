@@ -1,0 +1,123 @@
+#!/usr/bin/env bash
+
+# This script can be placed in any sensible location. For this example I've used '~/.scripts/shorthand/default'.
+
+# To set up a keybinding for ctrl+g in zsh, the following line can be included in .zshrc:
+# bindkey -s '^g' 'eval $($SCRIPT_PATH)\n'
+#
+# Using eval in the keybinding avoids executing the commands in a subshell, thus allowing
+# navigation using the cd shortcuts.
+
+# To launch this script via a window manager keybinding, use the command "$TERM -e $SCRIPT_PATH -x".
+# The -x flag executes the output from shorthand in a subshell, which is often necessary to prevent
+# the terminal from closing immediately.
+
+xflag=
+while getopts x name
+do
+    case $name in
+        x) xflag=x;;
+        ?) exit 2;;
+    esac
+done
+
+# a file called ".shorthand" can be used to create keybindings which are active
+# when this script is launched in the same directory or in subdirectories of 
+# its location. When the script is launched without the x flag, the key sequence
+# ".ee" can be pressed to either edit this file, or create it if it does not exist.
+
+upfind() {
+    # look for a file with a given name in ancestor directories
+    rpath=$(realpath $1)
+    [ -f "$1" ] && realpath "$1" || [ -z ${rpath%/*} ] || upfind ../$1
+}
+
+localkeys=$(upfind .shorthand)
+editlocalkeys=".ee [ -z $localkeys ] && nvim .shorthand || nvim $localkeys"
+
+
+COMMENTS_AND_BLANK_LINES='^\s*$\|^\s*#'
+CD_BINDINGS='cd\s\S*$'
+if [ ! -z "$xflag" ]; then
+    action() {
+        eval $(cat $1 | grep -v "$COMMENTS_AND_BLANK_LINES\|$CD_BINDINGS" | shorthand)
+    }
+else
+    action() {
+        { cat $localkeys; cat $1; echo $editlocalkeys; } | grep -v $COMMENTS_AND_BLANK_LINES | shorthand
+    }
+fi
+
+action <<'EOF'
+# System update
+uu sudo pacman -Syu
+
+# Edit this file
+ee nvim ~/.scripts/shorthand/default
+
+
+# Menus
+# -----
+mw nmcli -g SSID device wifi list | rofi -dmenu | xargs -I {} nmcli device wifi connect {}
+mm ~/.scripts/fzf_mount_external_drive
+mp passmenu
+
+ht tldr -l | sed "s/', '/\n/g;s/'\]//;s/\['//" | fzf | xargs tldr
+hc ~/.scripts/tmux_cht.sh
+
+
+nte ~/Documents/.scripts/notetaker
+nta ~/Documents/.scripts/mostrecent
+ts ~/.scripts/tmux_sessionizer
+za sudo alsactl restore
+
+# (c)reate
+# --------
+cs echo "Enter new script name:"; read userInput && nvim ~/.scripts/${userInput/\ /_/}
+cp ~/.scripts/create_project
+ce ~/.scripts/create_project -e
+cw echo 'Enter new password name:'; read userInput && pass generate -c ${userInput/\ /_/}
+cd 
+
+
+# (e)dit files
+# ------------
+e/ nvim $(find -type f -maxdepth 0 | fzf)
+ec/ cd "$(find -type d ~/.config -maxdepth 1 | fzf)" && nvim .
+ecz cd ~/.config/zsh && nvim ~/.config/zsh/.zshrc
+ecl cd ~/.config/lf && nvim .
+eca cd ~/.config/awesome && nvim .
+ect cd ~/.config/alacritty && nvim alacritty.toml
+ecr cd ~/.config/rofi && nvim .
+ecv cd ~/.config/nvim/ && nvim .
+es/ cd ~/.scripts && nvim "$(find . | grep -v 'venv/' | fzf)"
+
+# (g)o to directories
+# -------------------
+gdd cd ~/Documents/
+gdl cd ~/Downloads
+gpp cd ~/Pictures
+gss cd ~/.scripts
+gcc cd ~/.config
+gmm cd /run/media/"$USER"
+gh cd ~
+
+# (l)aunch programs
+# -----------------
+lh htop
+ll lf
+lt tmux
+lm ncmpcpp
+ls/ eval $(find ~/.scripts/ -maxdepth 1 -executable -type f | fzf)
+
+
+# (?) Get information
+# -------------------
+?df. df -h . | awk 'NR==2{print "Remaining Space: "$4}'
+?du. du -hs . | awk '{print "Size of current directory: "$1}'
+
+sk killall screenkey || screenkey & disown
+fds find *.(mp4|mkv|wmv|flv|mpeg) -maxdepth 0 -type f | fzf | xargs -I {} ffmpeg -i "{}" -vf 'scale=1920:1080' "{}.downscale.mkv"
+gtg git log --graph --abbrev-commit --decorate --all
+ww curl wttr.in && while [ : ]; do sleep 1; done
+EOF
