@@ -19,7 +19,8 @@ struct Args {
 
 struct Keybinding {
     key_sequence: String,
-    output: String
+    output: String,
+    comment: String
 }
 
 impl Keybinding {
@@ -29,7 +30,7 @@ impl Keybinding {
             Span::styled(dimmed_part, Style::default().fg(Color::Gray).add_modifier(Modifier::DIM)),
             Span::raw(non_dimmed_part)
         ]);
-        Row::new(vec![key_sequence_line, self.output.clone().into()])
+        Row::new(vec![key_sequence_line, self.output.clone().into(), self.comment.clone().into()])
     }
 }
 
@@ -42,10 +43,15 @@ fn main() -> io::Result<()> {
         .lines()
         .filter_map(|l| l.ok())
         .filter_map(|l| match l.split_once(" ") {
-            Some((a, b)) => Some((String::from(a), String::from(b))),
+            Some((a, b)) => {
+                match b.split_once(" #") {
+                    Some((content, comment)) => Some((String::from(a),String::from(content),String::from(comment))),
+                    _ => Some((String::from(a),String::from(b),String::from("")))
+                }
+            }
             _ => None
         })
-        .map(|(key_sequence, output)| Keybinding {key_sequence , output})
+        .map(|(key_sequence, output, comment)| Keybinding {key_sequence , output, comment})
         .collect();
 
     // raw mode disables terminal handling of inputs, sending them straight
@@ -85,7 +91,7 @@ fn handle_events(pressed_keys: &mut String, bindings: &Vec<Keybinding>, output: 
                             .filter(|k| &(k.key_sequence) == pressed_keys)
                             .collect::<Vec<&Keybinding>>();
                         match m.as_slice() {
-                            [Keybinding {key_sequence: _, output: out}] => {
+                            [Keybinding {key_sequence: _, output: out, ..}] => {
                                 output.push_str(out);
                                 return Ok(true)
                             },
@@ -108,6 +114,7 @@ fn ui(frame: &mut Frame, pressed_keys: &str, matches: &Vec<Keybinding>, args: &A
         true => vec![Constraint::Length(3), Constraint::Min(10)],
         false => vec![Constraint::Min(10)]
     };
+
     let layout = Layout::default()
         .direction(Direction::Vertical)
         .constraints(layout_constraints)
@@ -119,7 +126,13 @@ fn ui(frame: &mut Frame, pressed_keys: &str, matches: &Vec<Keybinding>, args: &A
         .map(|k| k.ui_row(pressed_keys.len()))
         .collect();
 
-    let table = Table::new(table_rows, &[Constraint::Length(5), Constraint::Length(25), Constraint::Length(20)])
+    let col_widths: Vec<u16> = vec![
+        matches.iter().map(|k| k.key_sequence.len()).max().unwrap() as u16,
+        matches.iter().map(|k| k.output.len()).max().unwrap() as u16,
+        matches.iter().map(|k| k.comment.len()).max().unwrap() as u16,
+    ];
+
+    let table = Table::new(table_rows, &[Constraint::Length(col_widths[0]), Constraint::Max(col_widths[1]), Constraint::Min(col_widths[2])])
         .block(Block::default().borders(Borders::ALL))
         .style(Style::default().fg(Color::White))
         .header(
