@@ -45,8 +45,8 @@ fn main() -> io::Result<()> {
         .filter_map(|l| match l.split_once(" ") {
             Some((a, b)) => {
                 match b.split_once(" #") {
-                    Some((content, comment)) => Some((String::from(a),String::from(content),String::from(comment))),
-                    _ => Some((String::from(a),String::from(b),String::from("")))
+                    Some((content, comment)) => Some((String::from(a.trim()),String::from(content.trim()),String::from(comment.trim()))),
+                    _ => Some((String::from(a.trim()),String::from(b.trim()),String::from("")))
                 }
             }
             _ => None
