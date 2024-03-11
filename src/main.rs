@@ -124,6 +124,12 @@ fn ui(frame: &mut Frame, pressed_keys: &str, matches: &Vec<Keybinding>, args: &A
         .iter()
         .filter(|k| k.key_sequence.starts_with(pressed_keys))
         .map(|k| k.ui_row(pressed_keys.len()))
+        .enumerate()
+        .map(|(n,r)| match n % 2 {
+            0 => r.style(Style::default().bg(Color::Rgb(20,20,20))),
+            1 => r.style(Style::default().bg(Color::Black)),
+            _ => r
+        })
         .collect();
 
     let col_widths: Vec<u16> = vec![
